@@ -15,10 +15,10 @@ SECTIONS
 
 	.data :
 	{
-		start_stors = . ;
+		start_ctors = . ;
 		KEEP(*(init_array));
-		KEEP(*(SORT_BY_INIT_PRIORITY( .init_array*)))
-		end_stor = . ;
+		KEEP(*(SORT_BY_INIT_PRIORITY( .init_array.* )));
+		end_ctors = . ;
 
 		*(.data)
 	}
@@ -28,7 +28,7 @@ SECTIONS
 		*(.bss)
 	}
 
-	/DISCARD/ : { *{.fini_array*} *{.comment}}
+	/DISCARD/ : { *(.fini_array*) *(.comment)}
 
 
 
