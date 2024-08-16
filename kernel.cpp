@@ -2,7 +2,7 @@
 #include "gdt.h"
 void printf(char* str)
 {
-	static uint32_t* VideoMemeroy = (uint16_t*)0xb8000;
+	static uint16_t* VideoMemeroy = (uint16_t*)0xb8000;
 
 	for (int i=0; str[i]!= '\0'; i++)
 	{

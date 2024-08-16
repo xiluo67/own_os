@@ -1,28 +1,26 @@
 #include "gdt.h"
 
-
-
-GlobalDescriptorTable::GlobalDescriptorTable() : nullSegementSelector(0,0,0), unusedSegmentSelector(0,0,0), codeSegmentSelector(0, 64*1024*1024, 0x9A), dataSegemntSelector(0, 64*1024*1024, 0x92)
+GlobalDescriptorTable::GlobalDescriptorTable() : nullSegmentSelector(0,0,0), unusedSegmentSelector(0,0,0), codeSegmentSelector(0, 64*1024*1024, 0x9A), dataSegmentSelector(0, 64*1024*1024, 0x92)
 {
 	uint32_t i[2];
 	i[0] = (uint32_t)this;
 	i[1] = sizeof(GlobalDescriptorTable) << 16;
 	asm volatile("lgdt (%0)" ::"p" (((uint8_t *) i) +2));
-
+	return;
 }
 
-~GlobalDescriptorTable::GlobalDescriptorTable()
+GlobalDescriptorTable::~GlobalDescriptorTable()
 {
 
 }
 
-uint16_t GlobalDescriptorTable::codeSegmentSelector()
+uint16_t GlobalDescriptorTable::CodeSegmentSelector()
 {
 	return (uint8_t *)&codeSegmentSelector - (uint8_t *)this;
 
 }
 
-uint16_t GlobalDescriptorTable::dataSegmentSelector()
+uint16_t GlobalDescriptorTable::DataSegmentSelector()
 {
 	return (uint8_t *)&dataSegmentSelector - (uint8_t *)this;
 
@@ -65,7 +63,7 @@ GlobalDescriptorTable::SegmentDescriptor::SegmentDescriptor(uint32_t base, uint3
 
 }
 
-uint32_t GlobalDescriptor::SegementDescriptor::Base()
+uint32_t GlobalDescriptorTable::SegmentDescriptor::Base()
 {
 	uint8_t *target = (uint8_t *)this;
 	uint8_t result = target[7];
@@ -76,17 +74,16 @@ uint32_t GlobalDescriptor::SegementDescriptor::Base()
 
 }
 
-uint32_t GlobalDescriptor::SegementDescriptor::Limit()
+uint32_t GlobalDescriptorTable::SegmentDescriptor::Limit()
 {
 	uint8_t *target = (uint8_t *)this;
 	uint8_t result = target[6] & 0xF;
 	result = (result << 8) + target[1];
 	result = (result << 8) + target[0];
 
-	if ((target[6] & 0xC0) == 0xC0))		
+	if ((target[6] & 0xC0) == 0xC0)
 		result = (result << 12) | 0xFFF;
 	return result;
-
 }
 
 
