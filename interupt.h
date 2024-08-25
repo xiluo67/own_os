@@ -27,6 +27,7 @@ class InteruptManager
             uint32_t base; //address of the table and the size
 
         }__attribute__((packed)); 
+
         static void SetInteruptDescriptprTableEntry(
             uint8_t interuptNumber,
             uint16_t codeSegmentSeletorOffset,

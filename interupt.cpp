@@ -12,11 +12,12 @@ void InteruptManager::SetInteruptDescriptprTableEntry
             uint8_t DescriptorPrivilegeLevel,
             uint8_t DescriptorType)
 {
+    /*Note: how the magic number 0x80 comes?*/
     const uint8_t IDT_DESC_PRESENT = 0x80;
     interuptDescriptorTable[interuptNumber].handlerAddressLowBits = ((uint32_t)handler) & 0xFFFF; //keep the lowbits of handler address;
-    interuptDescriptorTable[interuptNumber].handlerAddressHighBits = ((uint32_t)handler >> 16) & 0xFFFF; //keep the high 16 bits of handler address;;
+    interuptDescriptorTable[interuptNumber].handlerAddressHighBits = (((uint32_t)handler) >> 16) & 0xFFFF; //keep the high 16 bits of handler address;;
     interuptDescriptorTable[interuptNumber].gdt_codeSegmentSelector = codeSegmentSeletorOffset;
-    interuptDescriptorTable[interuptNumber].access = IDT_DESC_PRESENT | DescriptorType | (DescriptorPrivilegeLevel&3) << 5;
+    interuptDescriptorTable[interuptNumber].access = IDT_DESC_PRESENT | DescriptorType | ((DescriptorPrivilegeLevel&3) << 5);
     interuptDescriptorTable[interuptNumber].reserved = 0;
 
 }
@@ -56,8 +57,9 @@ InteruptManager::InteruptManager(GlobalDescriptorTable *gdt)
     picSlaveData.Write(0x00);
     
     interuptDescriptorTablePointer idt;
+
     idt.size = 256 * sizeof(GateDescriptor) - 1;
-    idt.base = (uint32_t)interuptDescriptorTable;
+    idt.base = (uint32_t)&interuptDescriptorTable;
     asm volatile("lidt %0" : : "m" (idt));
 };
 

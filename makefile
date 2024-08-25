@@ -33,6 +33,9 @@ mykernel.iso: mykernel.bin
 	grub-mkrescue --output=$@ iso
 	rm -rf iso
 
+_PHONY: clean
+clean:
+	rm -rf $(objects) mykernel.bin mykernel.iso
 run: mykernel.iso
 	(killall VirtualBoxVM && sleep 1) || true
 	VirtualBoxVM --startvm "My Operating System" &
