@@ -5,10 +5,29 @@
 #include "port.h"
 #include "gdt.h"
 
-class InterruptManager
+class InterruptManager;
+
+class InterrupHandler
 {
     protected:
-        /* interupts Descriptor Table */
+        uint8_t interruptNumber;
+        InterruptManager* interrupManager;
+
+        InterrupHandler(uint8_t interruptNumber, InterruptManager* interrupManager);
+        ~InterrupHandler();
+    public:
+        virtual uint32_t HandleInterrupt(uint32_t esp);
+};
+
+class InterruptManager
+{
+    friend class InterrupHandler;
+    protected:
+        static InterruptManager* ActiveInterruptManager;
+        InterrupHandler* handlers[256];
+
+
+	    /* interupts Descriptor Table */
         struct GateDescriptor
         {
             uint16_t handlerAddressLowBits;
@@ -41,6 +60,7 @@ class InterruptManager
         static void IgnoreInteruptRequest(); 
         static uint32_t handleInterupt(uint8_t interuptNumber, uint32_t esp);
 
+        uint32_t DohandleInterupt(uint8_t interuptNumber, uint32_t esp);
         /* Create the interupt handler */
         /*Note: How to put the exact compiled function into assembly code?*/
         static void HandleInteruptRequest0x00(); //keyboard interupt
@@ -93,6 +113,7 @@ class InterruptManager
     
         uint16_t HardwareInterruptOffset();
         void activate();
+        void deactivate();
 
 };
 

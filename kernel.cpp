@@ -1,12 +1,13 @@
 #include "types.h"
 #include "gdt.h"
 #include "interrupts.h"
+#include "keyboard.h"
+
 void printf(char* str)
 {
 	static uint16_t* VideoMemeroy = (uint16_t*)0xb8000;
 
 	static uint8_t x = 0, y = 0;
-
 
 	for (int i=0; str[i]!= '\0'; i++)
 	{
@@ -57,10 +58,12 @@ extern "C" void callConstructors()
 
 extern "C" void kernelMain(const void* multiboot_structure, uint32_t magicnumber)
 {
-	// printf("Hello World!---------------------\n");
+	printf("Hello World!---------------------\n");
 	GlobalDescriptorTable gdt;
 	InterruptManager interupts(0x20, &gdt);
 	/*Instaniate the hardware*/
+	KeyBoardDriver keyboard(&interupts);
+
 	/*the idt should ready to use*/
 	
 	interupts.activate();

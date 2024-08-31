@@ -1,8 +1,28 @@
 #include "interrupts.h"
 
 void printf(char* str);
-InterruptManager::GateDescriptor InterruptManager::interuptDescriptorTable[256];
 
+InterrupHandler::InterrupHandler(uint8_t interruptNumber, InterruptManager* interrupManager)
+{
+    this->interruptNumber = interruptNumber;
+    this->interrupManager = interrupManager;
+    interrupManager->handlers[interruptNumber] = this;
+};
+
+InterrupHandler::~InterrupHandler()
+{
+    if (interrupManager->handlers[interruptNumber] == this)
+        interrupManager->handlers[interruptNumber] = 0;
+};
+
+uint32_t InterrupHandler::HandleInterrupt(uint32_t esp)
+{
+    printf("base class handler handling");
+    return esp;
+};
+
+InterruptManager::GateDescriptor InterruptManager::interuptDescriptorTable[256];
+InterruptManager* InterruptManager::ActiveInterruptManager = 0;
 void InterruptManager::SetInteruptDescriptprTableEntry
 /* Set the entry of InteruptDescriptorTable */
 (
@@ -24,7 +44,7 @@ void InterruptManager::SetInteruptDescriptprTableEntry
 
 InterruptManager::InterruptManager(uint16_t hardwareInterruptOffset, GlobalDescriptorTable* globalDescriptorTable)
 : picMasterCommand(0x20),
-  picMasterData(0x20),
+  picMasterData(0x21),
   picSlaveCommand(0xA0),
   picSlaveData(0xA1)
 {
@@ -34,9 +54,13 @@ InterruptManager::InterruptManager(uint16_t hardwareInterruptOffset, GlobalDescr
     
     for (uint8_t i = 255; i > 0; --i)
     {
+        /* initialize the handler to be zero when start*/
         SetInteruptDescriptprTableEntry(i, codeSegment, &IgnoreInteruptRequest, 0, IDT_INTERUPT_GATE);
+        handlers[i] = 0;
         /*Note: How to set the number of IDT_INTERUPT_GATE*/
     }
+    SetInteruptDescriptprTableEntry(0, codeSegment, &IgnoreInteruptRequest, 0, IDT_INTERUPT_GATE);
+    handlers[0] = 0;
     SetInteruptDescriptprTableEntry(0x00, codeSegment, &HandleException0x00, 0, IDT_INTERUPT_GATE);
     SetInteruptDescriptprTableEntry(0x01, codeSegment, &HandleException0x01, 0, IDT_INTERUPT_GATE);
     SetInteruptDescriptprTableEntry(0x02, codeSegment, &HandleException0x02, 0, IDT_INTERUPT_GATE);
@@ -58,8 +82,6 @@ InterruptManager::InterruptManager(uint16_t hardwareInterruptOffset, GlobalDescr
     SetInteruptDescriptprTableEntry(0x12, codeSegment, &HandleException0x12, 0, IDT_INTERUPT_GATE);
     SetInteruptDescriptprTableEntry(0x13, codeSegment, &HandleException0x13, 0, IDT_INTERUPT_GATE);
 
-    // SetInteruptDescriptprTableEntry(0x20, codeSegment, &HandleInteruptRequest0x00, 0, IDT_INTERUPT_GATE);
-    // SetInteruptDescriptprTableEntry(0x21, codeSegment, &HandleInteruptRequest0x01, 0, IDT_INTERUPT_GATE);
     SetInteruptDescriptprTableEntry(hardwareInterruptOffset + 0x00, codeSegment, &HandleInteruptRequest0x00, 0, IDT_INTERUPT_GATE);
     SetInteruptDescriptprTableEntry(hardwareInterruptOffset + 0x01, codeSegment, &HandleInteruptRequest0x01, 0, IDT_INTERUPT_GATE);
     SetInteruptDescriptprTableEntry(hardwareInterruptOffset + 0x02, codeSegment, &HandleInteruptRequest0x02, 0, IDT_INTERUPT_GATE);
@@ -116,19 +138,46 @@ void InterruptManager::activate()
     );
 
     // Check if the privilege level is 0 (Ring 0)
-    if (privilegeLevel == 0) {
-        // printf("Running in Ring 0, executing sti...");
-
+    if (privilegeLevel == 0){ 
+        if(ActiveInterruptManager != 0) {
+            ActiveInterruptManager->deactivate();
+        }
         // Inline assembly to enable interrupts
+        ActiveInterruptManager = this;
         asm volatile("sti");
-    } else {
+    }
+    else {
         printf("Not running in Ring 0, cannot execute sti!");
+    }
+};
+
+void InterruptManager::deactivate()
+{
+    uint32_t privilegeLevel;
+
+    // Inline assembly to check the current privilege level
+    asm volatile (
+        "mov %%cs, %%ax;"   // Move the value of CS into AX
+        "and $0x3, %%ax;"   // Mask the lower 2 bits to get the CPL
+        "movzx %%ax, %0;"     // Move the result into the C++ variable
+        : "=r" (privilegeLevel)  // Output operand
+        :  // No input operands
+        : "ax"  // Clobbered registers
+    );
+
+    // Check if the privilege level is 0 (Ring 0)
+    if (privilegeLevel == 0 && ActiveInterruptManager == this) {
+        ActiveInterruptManager = 0;
+        // Inline assembly to enable interrupts
+        asm volatile("cli");
+    } else {
+        printf("Not running in Ring 0, cannot execute cli!");
     }
 };
 
 InterruptManager::~InterruptManager()
 {
-
+    deactivate();
 };
 
 uint16_t InterruptManager::HardwareInterruptOffset()
@@ -136,13 +185,44 @@ uint16_t InterruptManager::HardwareInterruptOffset()
     return hardwareInterruptOffset;
 };
 
+uint32_t InterruptManager::DohandleInterupt(uint8_t interuptNumber, uint32_t esp)
+{
+    if (handlers[interuptNumber] != 0)
+    {
+        esp = handlers[interuptNumber]->HandleInterrupt(esp);
+    }
+    else if (interuptNumber != hardwareInterruptOffset)
+    {
+        char* foo = "INTERRUPT 0x00";
+        char* hex = "0123456789ABCDEF";
+
+        foo[12] = hex[(interuptNumber >> 4) & 0xF];
+        foo[13] = hex[interuptNumber & 0xF];
+        printf(foo);
+    }
+
+    // if(interuptNumber >= 0x20 && interuptNumber < 0x30)
+    // {
+    //     printf("hello?");
+    //     picMasterCommand.Write(0x20);
+    //     if (interuptNumber >= 0x28 && interuptNumber < 0x30)
+    //     {
+    //         picSlaveCommand.Write(0x20);
+    //     }
+    // }
+    // hardware interrupts must be acknowledged
+    if(hardwareInterruptOffset <= interuptNumber && interuptNumber < hardwareInterruptOffset+16)
+    {
+        picMasterCommand.Write(0x20);
+        if(hardwareInterruptOffset + 8 <= interuptNumber)
+            picSlaveCommand.Write(0x20);
+    }
+    return esp;
+};
+
 uint32_t InterruptManager::handleInterupt(uint8_t interuptNumber, uint32_t esp)
 {
-    char* foo = "INTERRUPT 0x00";
-    char* hex = "0123456789ABCDEF";
-
-    foo[12] = hex[(interuptNumber >> 4) & 0xF];
-    foo[13] = hex[interuptNumber & 0xF];
-    printf(foo);
+    if (ActiveInterruptManager != 0)
+        ActiveInterruptManager->DohandleInterupt(interuptNumber, esp);
     return esp;
 };
