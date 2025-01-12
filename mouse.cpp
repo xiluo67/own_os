@@ -6,6 +6,7 @@
     dataport(0x60),
     commandport(0x64)
     {
+        
         uint16_t* VideoMemory = (uint16_t*)0xb8000;
         offset = 0;
         buttons = 0;
