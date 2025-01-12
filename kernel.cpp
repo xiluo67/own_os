@@ -2,6 +2,7 @@
 #include "gdt.h"
 #include "interrupts.h"
 #include "keyboard.h"
+#include "mouse.h"
 
 void printf(char* str)
 {
@@ -63,6 +64,7 @@ extern "C" void kernelMain(const void* multiboot_structure, uint32_t magicnumber
 	InterruptManager interupts(0x20, &gdt);
 	/*Instaniate the hardware*/
 	KeyBoardDriver keyboard(&interupts);
+	MouseDriver mouse(&interupts);
 
 	/*the idt should ready to use*/
 	
